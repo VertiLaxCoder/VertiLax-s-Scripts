@@ -1,0 +1,129 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- SETTINGS
+local AimbotEnabled = true
+local Tracking = false
+local FOVRadius = 160 -- Initial FOV
+local MinimumDistance = 500
+
+-- GUI CREATION
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local frame = Instance.new("Frame", gui)
+frame.Position = UDim2.new(0.5, -125, 0.9, -15)
+frame.Size = UDim2.new(0, 250, 0, 30)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+
+local slider = Instance.new("TextButton", frame)
+slider.Size = UDim2.new(0, 20, 1, 0)
+slider.Position = UDim2.new(0, FOVRadius / 500 * 250, 0, 0)
+slider.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+slider.Text = ""
+
+local label = Instance.new("TextLabel", frame)
+label.Size = UDim2.new(1, 0, 0, 20)
+label.Position = UDim2.new(0, 0, -1, 0)
+label.Text = "FOV: " .. FOVRadius
+label.TextColor3 = Color3.new(1, 1, 1)
+label.BackgroundTransparency = 1
+
+local dragging = false
+
+slider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local relativeX = math.clamp(input.Position.X - frame.AbsolutePosition.X, 0, 250)
+        slider.Position = UDim2.new(0, relativeX, 0, 0)
+        FOVRadius = math.floor((relativeX / 250) * 500) -- Max FOV 500
+        label.Text = "FOV: " .. FOVRadius
+    end
+end)
+
+-- FOV CIRCLE
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius = FOVRadius
+fovCircle.Thickness = 2
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Transparency = 0.5
+fovCircle.Filled = false
+fovCircle.Visible = true
+
+-- AIMBOT FUNCTION
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = FOVRadius
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local mouseLocation = UserInputService:GetMouseLocation()
+                local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)).Magnitude
+                local worldDistance = (Camera.CFrame.Position - head.Position).Magnitude
+
+                if distance < shortestDistance and worldDistance <= MinimumDistance then
+                    shortestDistance = distance
+                    closestTarget = head
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+-- INPUT HANDLING
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Tracking = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Tracking = false
+    end
+end)
+
+-- MAIN LOOP
+RunService.RenderStepped:Connect(function()
+    -- Update FOV circle
+    local mouseLocation = UserInputService:GetMouseLocation()
+    fovCircle.Position = Vector2.new(mouseLocation.X, mouseLocation.Y)
+    fovCircle.Radius = FOVRadius
+
+    if AimbotEnabled and Tracking then
+        local target = GetClosestTarget()
+        if target then
+            -- Smooth camera transition
+            local targetPosition = target.Position
+            local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
+            Camera.CFrame = Camera.CFrame:Lerp(newCFrame, 0.2)
+
+            -- Move mouse towards target
+            local screenPoint = Camera:WorldToViewportPoint(targetPosition)
+            local delta = Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)
+            pcall(function()
+                mousemoverel(delta.X, delta.Y)
+            end)
+        end
+    end
+end)
