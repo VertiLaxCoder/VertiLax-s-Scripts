@@ -1,0 +1,73 @@
+--// Solara-Compatible Roblox Fly Script UI (Client-side)
+--// For educational purposes ONLY. Do NOT use this to break Roblox TOS.
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- GUI Setup
+local flyUI = Instance.new("ScreenGui")
+flyUI.Name = "FlyUI"
+flyUI.ResetOnSpawn = false
+flyUI.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 120, 0, 40)
+button.Position = UDim2.new(0.5, -60, 0.9, 0)
+button.Text = "Toggle Fly [OFF]"
+button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.BorderSizePixel = 0
+button.AutoButtonColor = true
+button.Parent = flyUI
+
+-- Fly Logic
+local flying = false
+local flySpeed = 50
+local bodyGyro, bodyVel
+
+local function toggleFly()
+	flying = not flying
+	button.Text = flying and "Toggle Fly [ON]" or "Toggle Fly [OFF]"
+
+	if flying then
+		bodyGyro = Instance.new("BodyGyro")
+		bodyGyro.P = 9e4
+		bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+		bodyGyro.cframe = hrp.CFrame
+		bodyGyro.Parent = hrp
+
+		bodyVel = Instance.new("BodyVelocity")
+		bodyVel.Velocity = Vector3.zero
+		bodyVel.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+		bodyVel.Parent = hrp
+	else
+		bodyGyro:Destroy()
+		bodyVel:Destroy()
+	end
+end
+
+button.MouseButton1Click:Connect(toggleFly)
+
+local function onUpdate()
+	if not flying then return end
+	
+	local moveVec = Vector3.zero
+	if UIS:IsKeyDown(Enum.KeyCode.W) then moveVec += workspace.CurrentCamera.CFrame.LookVector end
+	if UIS:IsKeyDown(Enum.KeyCode.S) then moveVec -= workspace.CurrentCamera.CFrame.LookVector end
+	if UIS:IsKeyDown(Enum.KeyCode.A) then moveVec -= workspace.CurrentCamera.CFrame.RightVector end
+	if UIS:IsKeyDown(Enum.KeyCode.D) then moveVec += workspace.CurrentCamera.CFrame.RightVector end
+	if UIS:IsKeyDown(Enum.KeyCode.Space) then moveVec += Vector3.new(0, 1, 0) end
+	if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then moveVec -= Vector3.new(0, 1, 0) end
+	
+	bodyVel.Velocity = moveVec.Unit * flySpeed
+	bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+end
+
+RunService.RenderStepped:Connect(onUpdate)
