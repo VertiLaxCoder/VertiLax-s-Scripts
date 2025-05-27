@@ -1,0 +1,75 @@
+--[[
+Simple Solara-Compatible Spin Script with UI
+- Draggable
+- TextBox for speed (updates in real-time)
+- Toggle button
+- Max spin speed: 100000000
+]]
+
+-- UI Setup
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "SpinUI"
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 200, 0, 120)
+frame.Position = UDim2.new(0.1, 0, 0.1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Spin Script"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+
+local textBox = Instance.new("TextBox", frame)
+textBox.PlaceholderText = "Enter Speed"
+textBox.Size = UDim2.new(1, -20, 0, 30)
+textBox.Position = UDim2.new(0, 10, 0, 40)
+textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.Font = Enum.Font.Gotham
+textBox.TextSize = 14
+textBox.ClearTextOnFocus = false
+
+local toggleBtn = Instance.new("TextButton", frame)
+toggleBtn.Size = UDim2.new(1, -20, 0, 30)
+toggleBtn.Position = UDim2.new(0, 10, 0, 80)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(75, 75, 75)
+toggleBtn.Text = "Toggle Spin"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 14
+
+-- Logic
+local spinning = false
+local speed = 1000
+
+textBox.FocusLost:Connect(function()
+    local val = tonumber(textBox.Text)
+    if val then
+        speed = math.clamp(val, 1, 100000000)
+    end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    spinning = not spinning
+    toggleBtn.Text = spinning and "Spinning..." or "Toggle Spin"
+end)
+
+-- Spin Loop
+task.spawn(function()
+    while true do
+        task.wait()
+        if spinning and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(speed/60), 0)
+        end
+    end
+end)
