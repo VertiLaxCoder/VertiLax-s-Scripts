@@ -1,0 +1,67 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local function createESP(player)
+    if player == localPlayer then return end
+
+    local function updateESP()
+        local character = player.Character
+        if character then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp and not hrp:FindFirstChild("ESP") then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ESP"
+                billboard.Size = UDim2.new(0, 200, 0, 40)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextColor3 = Color3.new(1, 1, 1)
+                textLabel.TextStrokeTransparency = 0
+                textLabel.Font = Enum.Font.SourceSansBold
+                textLabel.TextScaled = true
+                textLabel.Text = ""
+                textLabel.Parent = billboard
+
+                billboard.Adornee = hrp
+                billboard.Parent = hrp
+
+                RunService.RenderStepped:Connect(function()
+                    local localCharacter = localPlayer.Character
+                    local localHrp = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
+                    if hrp and localHrp then
+                        local distance = (hrp.Position - localHrp.Position).Magnitude
+                        textLabel.Text = string.format("%s\n%.1f studs", player.Name, distance)
+                    end
+                end)
+            end
+        end
+    end
+
+    updateESP()
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        updateESP()
+    end)
+end
+
+for _, player in pairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    createESP(player)
+end)
+
+-- Check every 10 seconds for missing ESPs
+while true do
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= localPlayer then
+            createESP(player)
+        end
+    end
+    wait(10)
+end
