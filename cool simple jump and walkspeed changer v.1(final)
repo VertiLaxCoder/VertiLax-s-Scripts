@@ -1,0 +1,85 @@
+local player = game:GetService("Players").LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "SpeedJumpUI"
+
+-- Main Frame
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 120)
+frame.Position = UDim2.new(0, 20, 0, 20)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.2
+frame.AnchorPoint = Vector2.new(0, 0)
+frame.Active = true
+frame.Draggable = true
+
+-- WalkSpeed Label
+local walkLabel = Instance.new("TextLabel", frame)
+walkLabel.Size = UDim2.new(0, 100, 0, 30)
+walkLabel.Position = UDim2.new(0, 10, 0, 10)
+walkLabel.Text = "WalkSpeed:"
+walkLabel.TextColor3 = Color3.new(1,1,1)
+walkLabel.BackgroundTransparency = 1
+walkLabel.Font = Enum.Font.SourceSans
+walkLabel.TextSize = 18
+walkLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- WalkSpeed TextBox
+local walkBox = Instance.new("TextBox", frame)
+walkBox.Size = UDim2.new(0, 120, 0, 30)
+walkBox.Position = UDim2.new(0, 110, 0, 10)
+walkBox.Text = tostring(humanoid.WalkSpeed)
+walkBox.ClearTextOnFocus = false
+walkBox.TextColor3 = Color3.new(1,1,1)
+walkBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+walkBox.Font = Enum.Font.SourceSans
+walkBox.TextSize = 18
+
+-- JumpPower Label
+local jumpLabel = Instance.new("TextLabel", frame)
+jumpLabel.Size = UDim2.new(0, 100, 0, 30)
+jumpLabel.Position = UDim2.new(0, 10, 0, 50)
+jumpLabel.Text = "JumpPower:"
+jumpLabel.TextColor3 = Color3.new(1,1,1)
+jumpLabel.BackgroundTransparency = 1
+jumpLabel.Font = Enum.Font.SourceSans
+jumpLabel.TextSize = 18
+jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- JumpPower TextBox
+local jumpBox = Instance.new("TextBox", frame)
+jumpBox.Size = UDim2.new(0, 120, 0, 30)
+jumpBox.Position = UDim2.new(0, 110, 0, 50)
+jumpBox.Text = tostring(humanoid.JumpPower)
+jumpBox.ClearTextOnFocus = false
+jumpBox.TextColor3 = Color3.new(1,1,1)
+jumpBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+jumpBox.Font = Enum.Font.SourceSans
+jumpBox.TextSize = 18
+
+-- Apply Button
+local applyBtn = Instance.new("TextButton", frame)
+applyBtn.Size = UDim2.new(0, 230, 0, 30)
+applyBtn.Position = UDim2.new(0, 10, 0, 90)
+applyBtn.Text = "Apply"
+applyBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+applyBtn.TextColor3 = Color3.new(1,1,1)
+applyBtn.Font = Enum.Font.SourceSansBold
+applyBtn.TextSize = 20
+applyBtn.AutoButtonColor = true
+
+applyBtn.MouseButton1Click:Connect(function()
+    local ws = tonumber(walkBox.Text)
+    local jp = tonumber(jumpBox.Text)
+    if ws and ws > 0 then
+        humanoid.WalkSpeed = ws
+    end
+    if jp and jp > 0 then
+        humanoid.JumpPower = jp
+    end
+end)
