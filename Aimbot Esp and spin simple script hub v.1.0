@@ -8,7 +8,7 @@ local Camera = workspace.CurrentCamera
 
 -- HUB GUI
 local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "ScriptHub"
+gui.Name = "VertHub"
 
 local hubFrame = Instance.new("Frame", gui)
 hubFrame.Size = UDim2.new(0, 300, 0, 400)
@@ -21,7 +21,7 @@ hubFrame.Draggable = true
 local title = Instance.new("TextLabel", hubFrame)
 title.Size = UDim2.new(1, 0, 0, 40)
 title.BackgroundTransparency = 1
-title.Text = "Solara Script Hub"
+title.Text = "VertHub"
 title.TextColor3 = Color3.fromRGB(255,255,255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 24
@@ -311,4 +311,3 @@ spinToggle.Position = UDim2.new(0, 10, 0, yPos + 100)
 
 -- Adjust positions based on layout
 UIListLayout:ApplyLayout()
-
