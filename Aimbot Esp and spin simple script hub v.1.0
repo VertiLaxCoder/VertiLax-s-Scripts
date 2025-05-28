@@ -1,0 +1,314 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- HUB GUI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "ScriptHub"
+
+local hubFrame = Instance.new("Frame", gui)
+hubFrame.Size = UDim2.new(0, 300, 0, 400)
+hubFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
+hubFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+hubFrame.BorderSizePixel = 0
+hubFrame.Active = true
+hubFrame.Draggable = true
+
+local title = Instance.new("TextLabel", hubFrame)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "Solara Script Hub"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+
+local function createToggle(name, parent, onToggle)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.Position = UDim2.new(0, 10, 0, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    frame.BorderSizePixel = 0
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(0.75, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 18
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local toggle = Instance.new("TextButton", frame)
+    toggle.Size = UDim2.new(0.25, -10, 0.7, 0)
+    toggle.Position = UDim2.new(0.75, 0, 0.15, 0)
+    toggle.BackgroundColor3 = Color3.fromRGB(100,100,100)
+    toggle.Text = "Off"
+    toggle.TextColor3 = Color3.fromRGB(255,255,255)
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 16
+
+    local enabled = false
+    toggle.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        toggle.Text = enabled and "On" or "Off"
+        toggle.BackgroundColor3 = enabled and Color3.fromRGB(50,150,50) or Color3.fromRGB(100,100,100)
+        onToggle(enabled)
+    end)
+
+    return frame
+end
+
+-- Layout for toggles
+local UIListLayout = Instance.new("UIListLayout", hubFrame)
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.FillDirection = Enum.FillDirection.Vertical
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    hubFrame.Size = UDim2.new(0, 300, 0, UIListLayout.AbsoluteContentSize.Y + 60)
+end)
+
+-- === Script blocks ===
+
+-- AIMBOT SCRIPT --
+local AimbotEnabled = false
+local Tracking = false
+local FOVRadius = 160
+local MinimumDistance = 500
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius = FOVRadius
+fovCircle.Thickness = 2
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Transparency = 0.5
+fovCircle.Filled = false
+fovCircle.Visible = false
+
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = FOVRadius
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local mouseLocation = UserInputService:GetMouseLocation()
+                local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)).Magnitude
+                local worldDistance = (Camera.CFrame.Position - head.Position).Magnitude
+
+                if distance < shortestDistance and worldDistance <= MinimumDistance then
+                    shortestDistance = distance
+                    closestTarget = head
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Tracking = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Tracking = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local mouseLocation = UserInputService:GetMouseLocation()
+    fovCircle.Position = Vector2.new(mouseLocation.X, mouseLocation.Y)
+    fovCircle.Radius = FOVRadius
+    fovCircle.Visible = AimbotEnabled
+
+    if AimbotEnabled and Tracking then
+        local target = GetClosestTarget()
+        if target then
+            local targetPosition = target.Position
+            local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
+            Camera.CFrame = Camera.CFrame:Lerp(newCFrame, 0.2)
+
+            local screenPoint = Camera:WorldToViewportPoint(targetPosition)
+            local delta = Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)
+            pcall(function()
+                mousemoverel(delta.X, delta.Y)
+            end)
+        end
+    end
+end)
+
+-- ESP SCRIPT --
+local espEnabled = false
+local espConnections = {}
+
+local function createESP(p)
+    local char = p.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp or hrp:FindFirstChild("ESP") then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP"
+    billboard.Size = UDim2.new(0, 200, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.SourceSansBold
+    label.TextScaled = true
+    label.Text = ""
+    label.Parent = billboard
+
+    billboard.Adornee = hrp
+    billboard.Parent = hrp
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if espEnabled and hrp.Parent and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            label.Text = string.format("%s\n%.1f studs", p.Name, dist)
+        else
+            label.Text = ""
+            conn:Disconnect()
+        end
+    end)
+    espConnections[p] = conn
+end
+
+local function clearESP()
+    for p, conn in pairs(espConnections) do
+        if conn then conn:Disconnect() end
+        if p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local esp = hrp:FindFirstChild("ESP")
+                if esp then esp:Destroy() end
+            end
+        end
+    end
+    espConnections = {}
+end
+
+Players.PlayerAdded:Connect(function(p)
+    if espEnabled and p ~= LocalPlayer then
+        p.CharacterAdded:Connect(function()
+            wait(1)
+            createESP(p)
+        end)
+    end
+end)
+
+local function toggleESP(state)
+    espEnabled = state
+    if espEnabled then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                createESP(p)
+            end
+        end
+    else
+        clearESP()
+    end
+end
+
+-- SPIN SCRIPT --
+local spinEnabled = false
+local spinSpeed = 1000
+
+local spinUI = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+spinUI.Name = "SpinUI"
+spinUI.Enabled = false
+
+local spinFrame = Instance.new("Frame", spinUI)
+spinFrame.Size = UDim2.new(0, 200, 0, 120)
+spinFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+spinFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+spinFrame.BorderSizePixel = 0
+spinFrame.Active = true
+spinFrame.Draggable = true
+
+local spinTitle = Instance.new("TextLabel", spinFrame)
+spinTitle.Size = UDim2.new(1, 0, 0, 30)
+spinTitle.BackgroundTransparency = 1
+spinTitle.Text = "Spin Script"
+spinTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinTitle.Font = Enum.Font.GothamBold
+spinTitle.TextSize = 18
+
+local spinInput = Instance.new("TextBox", spinFrame)
+spinInput.PlaceholderText = "Enter Speed"
+spinInput.Size = UDim2.new(1, -20, 0, 30)
+spinInput.Position = UDim2.new(0, 10, 0, 40)
+spinInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+spinInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinInput.Font = Enum.Font.Gotham
+spinInput.TextSize = 14
+spinInput.ClearTextOnFocus = false
+
+local spinToggleBtn = Instance.new("TextButton", spinFrame)
+spinToggleBtn.Size = UDim2.new(1, -20, 0, 30)
+spinToggleBtn.Position = UDim2.new(0, 10, 0, 80)
+spinToggleBtn.BackgroundColor3 = Color3.fromRGB(75, 75, 75)
+spinToggleBtn.Text = "Toggle Spin"
+spinToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinToggleBtn.Font = Enum.Font.GothamBold
+spinToggleBtn.TextSize = 14
+
+spinInput.FocusLost:Connect(function()
+    local val = tonumber(spinInput.Text)
+    if val then
+        spinSpeed = math.clamp(val, 1, 100000000)
+    end
+end)
+
+spinToggleBtn.MouseButton1Click:Connect(function()
+    spinEnabled = not spinEnabled
+    spinToggleBtn.Text = spinEnabled and "Spinning..." or "Toggle Spin"
+    spinUI.Enabled = spinEnabled
+end)
+
+RunService.Heartbeat:Connect(function()
+    if spinEnabled then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame *= CFrame.Angles(0, math.rad(spinSpeed / 60), 0)
+        end
+    end
+end)
+
+-- === Add Toggles to hub ===
+local yPos = 50
+local aimbotToggle = createToggle("Aimbot", hubFrame, function(state)
+    AimbotEnabled = state
+end)
+aimbotToggle.Position = UDim2.new(0, 10, 0, yPos)
+
+local espToggle = createToggle("ESP", hubFrame, function(state)
+    toggleESP(state)
+end)
+espToggle.Position = UDim2.new(0, 10, 0, yPos + 50)
+
+local spinToggle = createToggle("Spin Script", hubFrame, function(state)
+    spinEnabled = state
+    spinToggleBtn.Text = state and "Spinning..." or "Toggle Spin"
+    spinUI.Enabled = state
+end)
+spinToggle.Position = UDim2.new(0, 10, 0, yPos + 100)
+
+-- Adjust positions based on layout
+UIListLayout:ApplyLayout()
+
