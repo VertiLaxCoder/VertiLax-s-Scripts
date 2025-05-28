@@ -1,0 +1,146 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- FLY VARIABLES
+local flying = false
+local flySpeed = 50
+
+-- UI SETUP
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlyUI"
+screenGui.Parent = game.CoreGui
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 220, 0, 100)
+frame.Position = UDim2.new(0.5, -110, 0.8, 0)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.BorderSizePixel = 0
+frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.ClipsDescendants = true
+
+local title = Instance.new("TextLabel", frame)
+title.Text = "Fly Script"
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+
+local toggleBtn = Instance.new("TextButton", frame)
+toggleBtn.Text = "Toggle Fly (Off)"
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 30)
+toggleBtn.Position = UDim2.new(0.05, 0, 0, 30)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 18
+
+local speedLabel = Instance.new("TextLabel", frame)
+speedLabel.Text = "Speed: 50"
+speedLabel.Size = UDim2.new(0.5, 0, 0, 20)
+speedLabel.Position = UDim2.new(0.05, 0, 0, 65)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = Color3.new(1,1,1)
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 16
+
+local speedUp = Instance.new("TextButton", frame)
+speedUp.Text = "+"
+speedUp.Size = UDim2.new(0.2, 0, 0, 20)
+speedUp.Position = UDim2.new(0.6, 0, 0, 65)
+speedUp.BackgroundColor3 = Color3.fromRGB(50,150,50)
+speedUp.TextColor3 = Color3.new(1,1,1)
+speedUp.Font = Enum.Font.GothamBold
+speedUp.TextSize = 18
+
+local speedDown = Instance.new("TextButton", frame)
+speedDown.Text = "-"
+speedDown.Size = UDim2.new(0.2, 0, 0, 20)
+speedDown.Position = UDim2.new(0.82, 0, 0, 65)
+speedDown.BackgroundColor3 = Color3.fromRGB(150,50,50)
+speedDown.TextColor3 = Color3.new(1,1,1)
+speedDown.Font = Enum.Font.GothamBold
+speedDown.TextSize = 18
+
+-- FLY CONTROLS
+local bodyGyro = nil
+local bodyVelocity = nil
+
+local function startFly()
+    if flying then return end
+    flying = true
+    toggleBtn.Text = "Toggle Fly (On)"
+    
+    bodyGyro = Instance.new("BodyGyro", HumanoidRootPart)
+    bodyGyro.P = 9e4
+    bodyGyro.MaxTorque = Vector3.new(9e4,9e4,9e4)
+    bodyGyro.CFrame = HumanoidRootPart.CFrame
+
+    bodyVelocity = Instance.new("BodyVelocity", HumanoidRootPart)
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.MaxForce = Vector3.new(9e4,9e4,9e4)
+end
+
+local function stopFly()
+    flying = false
+    toggleBtn.Text = "Toggle Fly (Off)"
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end
+
+toggleBtn.MouseButton1Click:Connect(function()
+    if flying then
+        stopFly()
+    else
+        startFly()
+    end
+end)
+
+speedUp.MouseButton1Click:Connect(function()
+    flySpeed = math.clamp(flySpeed + 10, 10, 500)
+    speedLabel.Text = "Speed: "..flySpeed
+end)
+
+speedDown.MouseButton1Click:Connect(function()
+    flySpeed = math.clamp(flySpeed - 10, 10, 500)
+    speedLabel.Text = "Speed: "..flySpeed
+end)
+
+-- MAIN LOOP
+RunService.Heartbeat:Connect(function()
+    if flying and bodyGyro and bodyVelocity then
+        local camCFrame = workspace.CurrentCamera.CFrame
+        bodyGyro.CFrame = camCFrame
+        
+        local direction = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camCFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camCFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camCFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camCFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0,1,0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            direction = direction - Vector3.new(0,1,0)
+        end
+
+        if direction.Magnitude > 0 then
+            bodyVelocity.Velocity = direction.Unit * flySpeed
+        else
+            bodyVelocity.Velocity = Vector3.new(0,0,0)
+        end
+    end
+end)
