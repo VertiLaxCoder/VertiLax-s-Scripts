@@ -203,13 +203,27 @@ local function clearESP()
     espConnections = {}
 end
 
-Players.PlayerAdded:Connect(function(p)
-    if espEnabled and p ~= LocalPlayer then
-        p.CharacterAdded:Connect(function()
-            wait(1)
-            createESP(p)
-        end)
+local function updateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            createESP(player)
+        end
     end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        updateESP()
+    end)
+end)
+
+for _, player in pairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    createESP(player)
 end)
 
 local function toggleESP(state)
