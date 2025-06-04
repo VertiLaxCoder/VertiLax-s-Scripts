@@ -1,0 +1,46 @@
+-- Simple teleport GUI for Solara
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "TeleportGui"
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Position = UDim2.new(0.5, -100, 0.4, 0)
+Frame.Size = UDim2.new(0, 200, 0, 100)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.BorderSizePixel = 0
+Frame.BackgroundTransparency = 0.2
+
+local TextBox = Instance.new("TextBox", Frame)
+TextBox.PlaceholderText = "Enter player name"
+TextBox.Position = UDim2.new(0.1, 0, 0.15, 0)
+TextBox.Size = UDim2.new(0.8, 0, 0.3, 0)
+TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TextBox.TextColor3 = Color3.new(1,1,1)
+TextBox.BorderSizePixel = 0
+
+local Button = Instance.new("TextButton", Frame)
+Button.Text = "Teleport"
+Button.Position = UDim2.new(0.1, 0, 0.6, 0)
+Button.Size = UDim2.new(0.8, 0, 0.3, 0)
+Button.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+Button.TextColor3 = Color3.new(1,1,1)
+Button.BorderSizePixel = 0
+
+-- Function to teleport
+Button.MouseButton1Click:Connect(function()
+    local targetName = TextBox.Text
+    local target = Players:FindFirstChild(targetName)
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local targetPos = target.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+        char:MoveTo(targetPos)
+    else
+        Button.Text = "Player not found"
+        wait(1)
+        Button.Text = "Teleport"
+    end
+end)
