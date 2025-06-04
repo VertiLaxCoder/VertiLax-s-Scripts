@@ -1,0 +1,118 @@
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+-- Player and UI Setup
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "NoClipUI"
+screenGui.DisplayOrder = 10
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 200, 0, 50)
+frame.Position = UDim2.new(0.5, -100, 0.1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local toggleBtn = Instance.new("TextButton", frame)
+toggleBtn.Size = UDim2.new(1, -10, 1, -10)
+toggleBtn.Position = UDim2.new(0, 5, 0, 5)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleBtn.BorderSizePixel = 0
+toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 20
+toggleBtn.Text = "Toggle NoClip (N)"
+
+-- Variables
+local noclip = false
+local speed = 50
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local hrp = character:WaitForChild("HumanoidRootPart")
+local camera = workspace.CurrentCamera
+local lastUpdate = tick()
+
+local moveConnection -- to store RenderStepped connection
+
+-- Functions
+local function updateMovement()
+    local deltaTime = tick() - lastUpdate
+    local moveDirection = Vector3.new()
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDirection = moveDirection + camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDirection = moveDirection - camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDirection = moveDirection - camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDirection = moveDirection + camera.CFrame.RightVector
+    end
+
+    if moveDirection.Magnitude > 0 then
+        moveDirection = moveDirection.Unit * speed * deltaTime
+        hrp.CFrame = CFrame.new(hrp.Position + moveDirection)
+    end
+
+    lastUpdate = tick()
+end
+
+local function toggleNoClip()
+    noclip = not noclip
+    toggleBtn.Text = noclip and "NoClip: ON (N)" or "NoClip: OFF (N)"
+
+    if noclip then
+        humanoid.PlatformStand = true
+        hrp.Anchored = true
+        if moveConnection then
+            moveConnection:Disconnect()
+        end
+        moveConnection = RunService.RenderStepped:Connect(updateMovement)
+    else
+        humanoid.PlatformStand = false
+        hrp.Anchored = false
+        if moveConnection then
+            moveConnection:Disconnect()
+            moveConnection = nil
+        end
+    end
+end
+
+-- UI Button and Keybind
+toggleBtn.MouseButton1Click:Connect(toggleNoClip)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.N then
+        toggleNoClip()
+    end
+end)
+
+-- Character Respawn Handling
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoid = character:WaitForChild("Humanoid")
+    hrp = character:WaitForChild("HumanoidRootPart")
+    lastUpdate = tick()
+
+    if noclip then
+        humanoid.PlatformStand = true
+        hrp.Anchored = true
+        if moveConnection then
+            moveConnection:Disconnect()
+        end
+        moveConnection = RunService.RenderStepped:Connect(updateMovement)
+        toggleBtn.Text = "NoClip: ON (N)"
+    else
+        toggleBtn.Text = "NoClip: OFF (N)"
+    end
+end)
