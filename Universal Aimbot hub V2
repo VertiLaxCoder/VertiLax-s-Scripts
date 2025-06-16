@@ -1,0 +1,403 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+--// SETTINGS
+local FOVRadius = 180
+local Smoothing = 0.16
+local AimbotEnabled = true
+local ShowFOV = true
+local TeamCheck = false
+local MinimumDistance = 600
+local ActivationKey = Enum.UserInputType.MouseButton2 -- RMB
+
+-- ESP settings
+local ESPEnabled = false
+local GlowESPEnabled = false
+local ESPRadius = 400
+
+-- Autofire
+local AutoFireEnabled = false
+
+--// GUI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "ModernAimbotUI"
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+-- Main window
+local frame = Instance.new("Frame", gui)
+frame.Position = UDim2.new(0.5, -170, 0.8, -105)
+frame.Size = UDim2.new(0, 340, 0, 240)
+frame.BackgroundColor3 = Color3.fromRGB(34, 36, 58)
+frame.BackgroundTransparency = 0.10
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.ZIndex = 20
+
+local frameCorner = Instance.new("UICorner", frame)
+frameCorner.CornerRadius = UDim.new(0, 22)
+
+-- Opening animation
+frame.Size = UDim2.new(0, 60, 0, 60)
+TweenService:Create(frame, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 340, 0, 240)
+}):Play()
+
+-- Top bar (draggable)
+local topBar = Instance.new("Frame", frame)
+topBar.Size = UDim2.new(1,0,0,36)
+topBar.BackgroundTransparency = 0.08
+topBar.BackgroundColor3 = Color3.fromRGB(28,30,44)
+topBar.ZIndex = 21
+
+local topCorner = Instance.new("UICorner", topBar)
+topCorner.CornerRadius = UDim.new(0, 18)
+
+local title = Instance.new("TextLabel", topBar)
+title.Size = UDim2.new(1,0,1,0)
+title.BackgroundTransparency = 1
+title.Text = "VertiLax Hub"
+title.TextColor3 = Color3.fromRGB(218, 218, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 19
+title.ZIndex = 22
+
+-- Drag logic
+local dragging, dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+topBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        frame.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
+    end
+end)
+
+local yBase = 46 -- Y offset for first label, spacing starts here
+local gap = 38 -- Space between sections
+
+--// FOV SLIDER
+local FOVSliderLabel = Instance.new("TextLabel", frame)
+FOVSliderLabel.Size = UDim2.new(0, 160, 0, 20)
+FOVSliderLabel.Position = UDim2.new(0, 22, 0, yBase)
+FOVSliderLabel.BackgroundTransparency = 1
+FOVSliderLabel.Text = "FOV: "..FOVRadius
+FOVSliderLabel.TextColor3 = Color3.fromRGB(200,210,255)
+FOVSliderLabel.Font = Enum.Font.Gotham
+FOVSliderLabel.TextSize = 15
+FOVSliderLabel.ZIndex = 22
+
+local FOVSlider = Instance.new("TextButton", frame)
+FOVSlider.Size = UDim2.new(0, 220, 0, 14)
+FOVSlider.Position = UDim2.new(0, 22, 0, yBase+24)
+FOVSlider.BackgroundColor3 = Color3.fromRGB(40,40,56)
+FOVSlider.Text = ""
+FOVSlider.AutoButtonColor = false
+FOVSlider.ZIndex = 23
+local sliderCorner = Instance.new("UICorner", FOVSlider)
+sliderCorner.CornerRadius = UDim.new(0, 7)
+local SliderBar = Instance.new("Frame", FOVSlider)
+SliderBar.Size = UDim2.new(FOVRadius/500,0,1,0)
+SliderBar.BackgroundColor3 = Color3.fromRGB(120,190,255)
+SliderBar.BackgroundTransparency = 0.07
+SliderBar.ZIndex = 24
+local barCorner = Instance.new("UICorner", SliderBar)
+barCorner.CornerRadius = UDim.new(0,7)
+
+local sliderDragging = false
+FOVSlider.MouseButton1Down:Connect(function() sliderDragging = true end)
+UserInputService.InputEnded:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseButton1 then sliderDragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local x = math.clamp(input.Position.X - FOVSlider.AbsolutePosition.X, 0, FOVSlider.AbsoluteSize.X)
+        FOVRadius = math.floor((x/FOVSlider.AbsoluteSize.X)*500)
+        FOVSliderLabel.Text = "FOV: "..FOVRadius
+        SliderBar.Size = UDim2.new(FOVRadius/500,0,1,0)
+    end
+end)
+
+--// Smoothing slider
+local SmoothingLabel = Instance.new("TextLabel", frame)
+SmoothingLabel.Size = UDim2.new(0, 160, 0, 20)
+SmoothingLabel.Position = UDim2.new(0, 22, 0, yBase+gap)
+SmoothingLabel.BackgroundTransparency = 1
+SmoothingLabel.Text = "Smoothing: "..Smoothing
+SmoothingLabel.TextColor3 = Color3.fromRGB(200,240,200)
+SmoothingLabel.Font = Enum.Font.Gotham
+SmoothingLabel.TextSize = 15
+SmoothingLabel.ZIndex = 22
+
+local SmoothingSlider = FOVSlider:Clone()
+SmoothingSlider.Parent = frame
+SmoothingSlider.Position = UDim2.new(0, 22, 0, yBase+gap+24)
+local SmoothBar = SmoothingSlider:FindFirstChildOfClass("Frame")
+SmoothBar.BackgroundColor3 = Color3.fromRGB(200,255,180)
+SmoothBar.Size = UDim2.new(Smoothing,0,1,0)
+local smoothDragging = false
+SmoothingSlider.MouseButton1Down:Connect(function() smoothDragging = true end)
+UserInputService.InputEnded:Connect(function(input)
+    if smoothDragging and input.UserInputType == Enum.UserInputType.MouseButton1 then smoothDragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if smoothDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local x = math.clamp(input.Position.X - SmoothingSlider.AbsolutePosition.X, 0, SmoothingSlider.AbsoluteSize.X)
+        Smoothing = tonumber(string.format("%.2f", x/SmoothingSlider.AbsoluteSize.X))
+        SmoothingLabel.Text = "Smoothing: "..Smoothing
+        SmoothBar.Size = UDim2.new(Smoothing,0,1,0)
+    end
+end)
+
+--// ESP Radius slider
+local ESPRadiusLabel = Instance.new("TextLabel", frame)
+ESPRadiusLabel.Size = UDim2.new(0, 160, 0, 20)
+ESPRadiusLabel.Position = UDim2.new(0, 22, 0, yBase+gap*2)
+ESPRadiusLabel.BackgroundTransparency = 1
+ESPRadiusLabel.Text = "ESP Radius: "..ESPRadius
+ESPRadiusLabel.TextColor3 = Color3.fromRGB(255,210,170)
+ESPRadiusLabel.Font = Enum.Font.Gotham
+ESPRadiusLabel.TextSize = 15
+ESPRadiusLabel.ZIndex = 22
+
+local ESPRadiusSlider = FOVSlider:Clone()
+ESPRadiusSlider.Parent = frame
+ESPRadiusSlider.Position = UDim2.new(0, 22, 0, yBase+gap*2+24)
+local ESPBar = ESPRadiusSlider:FindFirstChildOfClass("Frame")
+ESPBar.BackgroundColor3 = Color3.fromRGB(250,210,120)
+ESPBar.Size = UDim2.new(ESPRadius/1000,0,1,0)
+local espDragging = false
+ESPRadiusSlider.MouseButton1Down:Connect(function() espDragging = true end)
+UserInputService.InputEnded:Connect(function(input)
+    if espDragging and input.UserInputType == Enum.UserInputType.MouseButton1 then espDragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if espDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local x = math.clamp(input.Position.X - ESPRadiusSlider.AbsolutePosition.X, 0, ESPRadiusSlider.AbsoluteSize.X)
+        ESPRadius = math.floor((x/ESPRadiusSlider.AbsoluteSize.X)*1000)
+        ESPRadiusLabel.Text = "ESP Radius: "..ESPRadius
+        ESPBar.Size = UDim2.new(ESPRadius/1000,0,1,0)
+    end
+end)
+
+--// TOGGLES
+local function makeToggle(labelText, pos, init, callback)
+    local toggleFrame = Instance.new("Frame", frame)
+    toggleFrame.Size = UDim2.new(0,130,0,22)
+    toggleFrame.Position = pos
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.ZIndex = 25
+
+    local toggleLabel = Instance.new("TextLabel", toggleFrame)
+    toggleLabel.Size = UDim2.new(0.7,0,1,0)
+    toggleLabel.BackgroundTransparency = 1
+    toggleLabel.Text = labelText
+    toggleLabel.TextColor3 = Color3.fromRGB(200,220,245)
+    toggleLabel.Font = Enum.Font.Gotham
+    toggleLabel.TextSize = 13
+    toggleLabel.ZIndex = 26
+
+    local toggleBtn = Instance.new("TextButton", toggleFrame)
+    toggleBtn.Size = UDim2.new(0.24,0,0.78,0)
+    toggleBtn.Position = UDim2.new(0.76,0,0.11,0)
+    toggleBtn.BackgroundColor3 = init and Color3.fromRGB(110,255,170) or Color3.fromRGB(70,70,90)
+    toggleBtn.Text = ""
+    toggleBtn.ZIndex = 26
+    local toggleCorner = Instance.new("UICorner", toggleBtn)
+    toggleCorner.CornerRadius = UDim.new(1,0)
+
+    local enabled = init
+    toggleBtn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        callback(enabled)
+        TweenService:Create(toggleBtn, TweenInfo.new(0.14, Enum.EasingStyle.Sine), {
+            BackgroundColor3 = enabled and Color3.fromRGB(110,255,170) or Color3.fromRGB(70,70,90)
+        }):Play()
+    end)
+    return toggleFrame
+end
+
+makeToggle("Aimbot", UDim2.new(0,200,0,54), AimbotEnabled, function(v) AimbotEnabled = v end)
+makeToggle("Show FOV", UDim2.new(0,200,0,92), ShowFOV, function(v) ShowFOV = v end)
+makeToggle("Team Check", UDim2.new(0,200,0,130), TeamCheck, function(v) TeamCheck = v end)
+makeToggle("ESP", UDim2.new(0,200,0,168), ESPEnabled, function(v) ESPEnabled = v end)
+makeToggle("Glow Fill ESP", UDim2.new(0,200,0,206), GlowESPEnabled, function(v) GlowESPEnabled = v end)
+makeToggle("Auto Fire", UDim2.new(0,200,0,244), AutoFireEnabled, function(v) AutoFireEnabled = v end)
+
+--// FOV CIRCLE
+local FOVCircle = Drawing and Drawing.new("Circle") or nil
+if FOVCircle then
+    FOVCircle.Radius = FOVRadius
+    FOVCircle.Filled = false
+    FOVCircle.Thickness = 2.5
+    FOVCircle.Color = Color3.fromRGB(100,200,255)
+    FOVCircle.Transparency = 0.7
+    FOVCircle.Visible = ShowFOV
+end
+RunService.RenderStepped:Connect(function()
+    if FOVCircle then
+        local mouse = UserInputService:GetMouseLocation()
+        FOVCircle.Position = Vector2.new(mouse.X, mouse.Y)
+        FOVCircle.Radius = FOVRadius
+        FOVCircle.Visible = ShowFOV
+    end
+end)
+
+--// ESP Drawing table
+local ESPTable = {}
+
+local function ClearESP()
+    for _, esp in pairs(ESPTable) do
+        if esp.box then pcall(function() esp.box:Remove() end) end
+        if esp.glow then pcall(function() esp.glow:Remove() end) end
+    end
+    table.clear(ESPTable)
+end
+
+local function DrawESP(player, color)
+    if not player.Character or not player.Character:FindFirstChild("Head") then return end
+    local head = player.Character.Head
+    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+    if not onScreen then return end
+
+    -- Check ESP radius
+    local camDist = (Camera.CFrame.Position - head.Position).Magnitude
+    if camDist > ESPRadius then return end
+
+    -- ESP Box (circle highlight)
+    local box = Drawing.new("Circle")
+    box.Position = Vector2.new(pos.X, pos.Y)
+    box.Radius = 20
+    box.Color = color or Color3.fromRGB(255,255,0)
+    box.Filled = false
+    box.Thickness = 2.2
+    box.Transparency = 0.9
+    box.Visible = true
+
+    -- Glow fill
+    local glow
+    if GlowESPEnabled then
+        glow = Drawing.new("Circle")
+        glow.Position = Vector2.new(pos.X, pos.Y)
+        glow.Radius = 20
+        glow.Color = color or Color3.fromRGB(0,255,255)
+        glow.Filled = true
+        glow.Thickness = 0
+        glow.Transparency = 0.18
+        glow.Visible = true
+    end
+
+    table.insert(ESPTable, {box=box, glow=glow})
+end
+
+RunService.RenderStepped:Connect(function()
+    -- Clear old ESP drawings
+    ClearESP()
+
+    -- Draw ESP for all
+    if ESPEnabled or GlowESPEnabled then
+        for _,player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                if not TeamCheck or player.Team ~= LocalPlayer.Team then
+                    DrawESP(player)
+                end
+            end
+        end
+    end
+end)
+
+--// AIMBOT LOGIC (CAMERA ONLY)
+local Tracking = false
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == ActivationKey then
+        Tracking = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == ActivationKey then
+        Tracking = false
+    end
+end)
+
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = FOVRadius
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            if not TeamCheck or player.Team ~= LocalPlayer.Team then
+                local head = player.Character.Head
+                local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local mouseLocation = UserInputService:GetMouseLocation()
+                    local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)).Magnitude
+                    local worldDistance = (Camera.CFrame.Position - head.Position).Magnitude
+                    if distance < shortestDistance and worldDistance <= MinimumDistance then
+                        shortestDistance = distance
+                        closestTarget = head
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
+--// AUTO FIRE
+local lastFireTime = 0
+local firing = false
+
+local function FireTool()
+    if not LocalPlayer.Character then return end
+    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if tool and tool:FindFirstChild("Activate") then
+        tool:Activate()
+    elseif tool then
+        pcall(function() tool:Activate() end)
+    end
+end
+
+--// MAIN LOOP
+RunService.RenderStepped:Connect(function()
+    if AimbotEnabled and Tracking then
+        local target = GetClosestTarget()
+        if target then
+            local targetPosition = target.Position
+            local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
+            Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Smoothing)
+            -- Auto fire logic
+            if AutoFireEnabled then
+                if not firing then
+                    firing = true
+                    task.spawn(function()
+                        local heldTime = 0
+                        while firing and heldTime < 0.2 do
+                            heldTime = heldTime + RunService.RenderStepped:Wait()
+                        end
+                        if firing and heldTime >= 0.2 then
+                            FireTool()
+                        end
+                    end)
+                end
+            end
+        end
+    end
+    if not Tracking then
+        firing = false
+    end
+end)
+
+print("Modern Aimbot Loaded! Hold RMB to aim. ESP, Glow, and AutoFire ready.")
