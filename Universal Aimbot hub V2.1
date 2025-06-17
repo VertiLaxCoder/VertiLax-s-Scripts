@@ -20,7 +20,7 @@ local ESPEnabled = false
 local GlowESPEnabled = false
 local ESPRadius = 400
 
--- Autofire
+-- Autofire (not used in this build)
 local AutoFireEnabled = false
 
 --// GUI
@@ -28,7 +28,6 @@ local gui = Instance.new("ScreenGui", game.CoreGui)
 gui.Name = "ModernAimbotUI"
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
--- Main window
 local frame = Instance.new("Frame", gui)
 frame.Position = UDim2.new(0.5, -170, 0.8, -105)
 frame.Size = UDim2.new(0, 340, 0, 240)
@@ -41,13 +40,11 @@ frame.ZIndex = 20
 local frameCorner = Instance.new("UICorner", frame)
 frameCorner.CornerRadius = UDim.new(0, 22)
 
--- Opening animation
 frame.Size = UDim2.new(0, 60, 0, 60)
 TweenService:Create(frame, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
     Size = UDim2.new(0, 340, 0, 240)
 }):Play()
 
--- Top bar (draggable)
 local topBar = Instance.new("Frame", frame)
 topBar.Size = UDim2.new(1,0,0,36)
 topBar.BackgroundTransparency = 0.08
@@ -66,7 +63,6 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 19
 title.ZIndex = 22
 
--- Drag logic
 local dragging, dragStart, startPos
 topBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -87,8 +83,8 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-local yBase = 46 -- Y offset for first label, spacing starts here
-local gap = 38 -- Space between sections
+local yBase = 46
+local gap = 38
 
 --// FOV SLIDER
 local FOVSliderLabel = Instance.new("TextLabel", frame)
@@ -248,6 +244,7 @@ if FOVCircle then
     FOVCircle.Transparency = 0.7
     FOVCircle.Visible = ShowFOV
 end
+
 RunService.RenderStepped:Connect(function()
     if FOVCircle then
         local mouse = UserInputService:GetMouseLocation()
@@ -274,11 +271,9 @@ local function DrawESP(player, color)
     local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
     if not onScreen then return end
 
-    -- Check ESP radius
     local camDist = (Camera.CFrame.Position - head.Position).Magnitude
     if camDist > ESPRadius then return end
 
-    -- ESP Box (circle highlight)
     local box = Drawing.new("Circle")
     box.Position = Vector2.new(pos.X, pos.Y)
     box.Radius = 20
@@ -288,7 +283,6 @@ local function DrawESP(player, color)
     box.Transparency = 0.9
     box.Visible = true
 
-    -- Glow fill
     local glow
     if GlowESPEnabled then
         glow = Drawing.new("Circle")
@@ -305,10 +299,7 @@ local function DrawESP(player, color)
 end
 
 RunService.RenderStepped:Connect(function()
-    -- Clear old ESP drawings
     ClearESP()
-
-    -- Draw ESP for all
     if ESPEnabled or GlowESPEnabled then
         for _,player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
@@ -320,13 +311,15 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
---// AIMBOT LOGIC (CAMERA ONLY)
+--// AIMBOT LOGIC (Camera + Mouse Move)
 local Tracking = false
+
 UserInputService.InputBegan:Connect(function(input)
     if input.UserInputType == ActivationKey then
         Tracking = true
     end
 end)
+
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == ActivationKey then
         Tracking = false
@@ -336,6 +329,7 @@ end)
 local function GetClosestTarget()
     local closestTarget = nil
     local shortestDistance = FOVRadius
+
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
             if not TeamCheck or player.Team ~= LocalPlayer.Team then
@@ -345,6 +339,7 @@ local function GetClosestTarget()
                     local mouseLocation = UserInputService:GetMouseLocation()
                     local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)).Magnitude
                     local worldDistance = (Camera.CFrame.Position - head.Position).Magnitude
+
                     if distance < shortestDistance and worldDistance <= MinimumDistance then
                         shortestDistance = distance
                         closestTarget = head
@@ -353,51 +348,32 @@ local function GetClosestTarget()
             end
         end
     end
+
     return closestTarget
 end
 
---// AUTO FIRE
-local lastFireTime = 0
-local firing = false
-
-local function FireTool()
-    if not LocalPlayer.Character then return end
-    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-    if tool and tool:FindFirstChild("Activate") then
-        tool:Activate()
-    elseif tool then
-        pcall(function() tool:Activate() end)
-    end
-end
-
---// MAIN LOOP
 RunService.RenderStepped:Connect(function()
+    if FOVCircle then
+        local mouse = UserInputService:GetMouseLocation()
+        FOVCircle.Position = Vector2.new(mouse.X, mouse.Y)
+        FOVCircle.Radius = FOVRadius
+        FOVCircle.Visible = ShowFOV
+    end
+
     if AimbotEnabled and Tracking then
         local target = GetClosestTarget()
         if target then
             local targetPosition = target.Position
             local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
             Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Smoothing)
-            -- Auto fire logic
-            if AutoFireEnabled then
-                if not firing then
-                    firing = true
-                    task.spawn(function()
-                        local heldTime = 0
-                        while firing and heldTime < 0.2 do
-                            heldTime = heldTime + RunService.RenderStepped:Wait()
-                        end
-                        if firing and heldTime >= 0.2 then
-                            FireTool()
-                        end
-                    end)
-                end
-            end
+            local screenPoint = Camera:WorldToViewportPoint(targetPosition)
+            local mouseLocation = UserInputService:GetMouseLocation()
+            local delta = Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)
+            pcall(function()
+                mousemoverel(delta.X, delta.Y)
+            end)
         end
-    end
-    if not Tracking then
-        firing = false
     end
 end)
 
-print("Modern Aimbot Loaded! Hold RMB to aim. ESP, Glow, and AutoFire ready.")
+print("Modern Aimbot Loaded! Hold RMB to aim. ESP, Glow, and MouseMove aimbot active.")
