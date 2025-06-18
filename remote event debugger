@@ -1,0 +1,178 @@
+-- Universal Remote Explorer: Click to Execute, Feedback, Draggable, Searchable
+local uis = game:GetService("UserInputService")
+local core = game:GetService("CoreGui")
+
+-- Helper: Find all remotes
+local containers = {
+    game:GetService("ReplicatedStorage"),
+    game:GetService("Workspace"),
+    game:GetService("StarterGui"),
+    game:GetService("Players"),
+    game:GetService("StarterPack")
+}
+local function getRemotes()
+    local found = {}
+    local function scan(obj)
+        for _, v in ipairs(obj:GetChildren()) do
+            if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+                table.insert(found, v)
+            end
+            scan(v)
+        end
+    end
+    for _, cont in ipairs(containers) do
+        pcall(scan, cont)
+    end
+    return found
+end
+
+local allRemotes = getRemotes()
+
+-- UI
+local gui = Instance.new("ScreenGui")
+gui.Name = "RemoteExplorer"
+gui.Parent = core
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 420, 0, 340)
+frame.Position = UDim2.new(0, 100, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -38, 0, 32)
+title.Position = UDim2.new(0, 8, 0, 0)
+title.Text = "Remote Explorer"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
+title.BackgroundTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -36, 0, 0)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 18
+closeBtn.BorderSizePixel = 0
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+-- Searchbox
+local searchBox = Instance.new("TextBox", frame)
+searchBox.Position = UDim2.new(0, 12, 0, 36)
+searchBox.Size = UDim2.new(1, -24, 0, 28)
+searchBox.BackgroundColor3 = Color3.fromRGB(30,30,40)
+searchBox.TextColor3 = Color3.fromRGB(240,240,240)
+searchBox.Font = Enum.Font.SourceSans
+searchBox.PlaceholderText = "Search remotes by keyword..."
+searchBox.TextSize = 18
+searchBox.ClearTextOnFocus = false
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Scroll area
+local scroll = Instance.new("ScrollingFrame", frame)
+scroll.Position = UDim2.new(0, 0, 0, 68)
+scroll.Size = UDim2.new(1, 0, 1, -80)
+scroll.BackgroundColor3 = Color3.fromRGB(30,30,36)
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 10
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local listLayout = Instance.new("UIListLayout", scroll)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local resultLabels = {}
+
+-- Helper: Full path for copying
+local function getFullPath(inst)
+    local path = {}
+    while inst and inst.Parent and inst.Parent ~= game do
+        table.insert(path, 1, inst.Name)
+        inst = inst.Parent
+    end
+    return "game."..table.concat(path, ".")
+end
+
+-- Notification
+local function notify(msg, color)
+    local n = Instance.new("TextLabel", frame)
+    n.Text = msg
+    n.BackgroundTransparency = 0.35
+    n.BackgroundColor3 = color or Color3.fromRGB(40, 60, 80)
+    n.TextColor3 = Color3.new(1,1,1)
+    n.Font = Enum.Font.SourceSansBold
+    n.TextSize = 18
+    n.Size = UDim2.new(1, -24, 0, 32)
+    n.Position = UDim2.new(0, 12, 1, -40)
+    n.BorderSizePixel = 0
+    n.ZIndex = 99
+    spawn(function()
+        wait(1.2)
+        n:Destroy()
+    end)
+end
+
+-- Helper: Refresh display
+local function updateList()
+    for _, v in ipairs(resultLabels) do
+        v:Destroy()
+    end
+    resultLabels = {}
+    local text = searchBox.Text:lower()
+    for _, remote in ipairs(allRemotes) do
+        local name = remote.Name:lower()
+        if text == "" or name:find(text, 1, true) then
+            local label = Instance.new("TextButton", scroll)
+            label.Size = UDim2.new(1, -8, 0, 30)
+            label.BackgroundColor3 = Color3.fromRGB(46,46,60)
+            label.TextColor3 = remote:IsA("RemoteEvent") and Color3.fromRGB(170,255,170) or Color3.fromRGB(170,170,255)
+            label.Font = Enum.Font.SourceSans
+            label.TextSize = 17
+            label.Text = "[" .. remote.ClassName .. "] " .. getFullPath(remote)
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.AutoButtonColor = true
+            label.MouseButton1Click:Connect(function()
+                local success = false
+                if remote:IsA("RemoteEvent") then
+                    success = pcall(function()
+                        remote:FireServer("test")
+                    end)
+                elseif remote:IsA("RemoteFunction") then
+                    success = pcall(function()
+                        remote:InvokeServer("test")
+                    end)
+                end
+                if success then
+                    label.BackgroundColor3 = Color3.fromRGB(80, 200, 100)
+                    label.Text = "[successfully executed!] " .. getFullPath(remote)
+                    notify("successfully executed!", Color3.fromRGB(60, 180, 90))
+                else
+                    label.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+                    label.Text = "[no permission :(] " .. getFullPath(remote)
+                    notify("no permission :(", Color3.fromRGB(220, 60, 60))
+                end
+                wait(1.3)
+                label.BackgroundColor3 = Color3.fromRGB(46,46,60)
+                label.Text = "[" .. remote.ClassName .. "] " .. getFullPath(remote)
+            end)
+            table.insert(resultLabels, label)
+        end
+    end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(updateList)
+updateList()
+
+-- Optional: focus search on "/" key
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Slash then
+        searchBox:CaptureFocus()
+    end
+end)
