@@ -1,0 +1,254 @@
+
+local a, b, c, d, e, f = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("TweenService"), workspace.CurrentCamera, game:GetService("Players").LocalPlayer
+
+local cfg = {
+    F = 180, S = 0.16, A = true, V = true, M = 600, K = Enum.UserInputType.MouseButton2, ESP = false, G = false, ER = 400, AF = false, AFT = 0, AFH = 0.1, Fg = false,
+}
+
+local ui = Instance.new("ScreenGui", game.CoreGui)
+ui.Name = "AppUI"
+ui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+local fr = Instance.new("Frame", ui)
+fr.Position = UDim2.new(0.5, -170, 0.8, -105)
+fr.Size = UDim2.new(0, 340, 0, 240)
+fr.BackgroundColor3 = Color3.fromRGB(34, 36, 58)
+fr.BackgroundTransparency = 0.10
+fr.BorderSizePixel = 0
+fr.ClipsDescendants = true
+fr.ZIndex = 20
+
+local frC = Instance.new("UICorner", fr)
+frC.CornerRadius = UDim.new(0, 22)
+
+fr.Size = UDim2.new(0, 60, 0, 60)
+d:Create(fr, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 340, 0, 240)
+}):Play()
+
+local tb = Instance.new("Frame", fr)
+tb.Size = UDim2.new(1,0,0,36)
+tb.BackgroundTransparency = 0.08
+tb.BackgroundColor3 = Color3.fromRGB(28,30,44)
+tb.ZIndex = 21
+
+local tbC = Instance.new("UICorner", tb)
+tbC.CornerRadius = UDim.new(0, 18)
+
+local ti = Instance.new("TextLabel", tb)
+ti.Size = UDim2.new(1,0,1,0)
+ti.BackgroundTransparency = 1
+ti.Text = "CoreUI"
+ti.TextColor3 = Color3.fromRGB(218, 218, 255)
+ti.Font = Enum.Font.GothamBold
+ti.TextSize = 19
+ti.ZIndex = 22
+
+local dragging, dragStart, startPos
+tb.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = fr.Position
+    end
+end)
+tb.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+c.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        fr.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
+    end
+end)
+
+local yBase, gap = 46, 38
+
+local lbl1 = Instance.new("TextLabel", fr)
+lbl1.Size = UDim2.new(0, 160, 0, 20)
+lbl1.Position = UDim2.new(0, 22, 0, yBase)
+lbl1.BackgroundTransparency = 1
+lbl1.Text = "FOV: "..cfg.F
+lbl1.TextColor3 = Color3.fromRGB(200,210,255)
+lbl1.Font = Enum.Font.Gotham
+lbl1.TextSize = 15
+lbl1.ZIndex = 22
+
+local sl1 = Instance.new("TextButton", fr)
+sl1.Size = UDim2.new(0, 220, 0, 14)
+sl1.Position = UDim2.new(0, 22, 0, yBase+24)
+sl1.BackgroundColor3 = Color3.fromRGB(40,40,56)
+sl1.Text = ""
+sl1.AutoButtonColor = false
+sl1.ZIndex = 23
+local sc1 = Instance.new("UICorner", sl1)
+sc1.CornerRadius = UDim.new(0, 7)
+local bar1 = Instance.new("Frame", sl1)
+bar1.Size = UDim2.new(cfg.F/500,0,1,0)
+bar1.BackgroundColor3 = Color3.fromRGB(120,190,255)
+bar1.BackgroundTransparency = 0.07
+bar1.ZIndex = 24
+local bar1c = Instance.new("UICorner", bar1)
+bar1c.CornerRadius = UDim.new(0,7)
+
+local sliderDragging = false
+sl1.MouseButton1Down:Connect(function() sliderDragging = true end)
+c.InputEnded:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseButton1 then sliderDragging = false end
+end)
+c.InputChanged:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local x = math.clamp(input.Position.X - sl1.AbsolutePosition.X, 0, sl1.AbsoluteSize.X)
+        cfg.F = math.floor((x/sl1.AbsoluteSize.X)*500)
+        lbl1.Text = "FOV: "..cfg.F
+        bar1.Size = UDim2.new(cfg.F/500,0,1,0)
+    end
+end)
+
+local circ = Drawing and Drawing.new("Circle") or nil
+if circ then
+    circ.Radius = cfg.F
+    circ.Filled = false
+    circ.Thickness = 2.5
+    circ.Color = Color3.fromRGB(100,200,255)
+    circ.Transparency = 0.7
+    circ.Visible = cfg.V
+end
+
+b.RenderStepped:Connect(function()
+    if circ then
+        local mouse = c:GetMouseLocation()
+        circ.Position = Vector2.new(mouse.X, mouse.Y)
+        circ.Radius = cfg.F
+        circ.Visible = cfg.V
+    end
+end)
+
+-- Highlights obfuscated
+globalHighlights = {}
+local function clearHL()
+    for plr, hl in pairs(globalHighlights) do
+        if hl and hl.Parent then hl:Destroy() end
+    end
+    table.clear(globalHighlights)
+end
+local function refreshHL()
+    clearHL()
+    if not (cfg.ESP or cfg.G) then return end
+    for _,plr in pairs(a:GetPlayers()) do
+        if plr~=f and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head=plr.Character.Head
+            local dist=(e.CFrame.Position-head.Position).Magnitude
+            if dist<=cfg.ER then
+                local hl=Instance.new("Highlight")
+                hl.Parent=plr.Character
+                hl.Adornee=plr.Character
+                hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Enabled=true
+                if cfg.G then
+                    hl.OutlineColor=Color3.fromRGB(0,255,255)
+                    hl.FillColor=hl.OutlineColor
+                    hl.FillTransparency=0.6
+                elseif cfg.ESP then
+                    hl.OutlineColor=Color3.fromRGB(255,255,0)
+                    hl.FillTransparency=1
+                end
+                globalHighlights[plr]=hl
+            end
+        end
+    end
+end
+b.RenderStepped:Connect(refreshHL)
+
+-- Logic (Aimbot/Autofire) fully obfuscated
+local tracking = false
+c.InputBegan:Connect(function(input)
+    if input.UserInputType == cfg.K then
+        tracking = true
+        cfg.AFT = 0
+    end
+end)
+c.InputEnded:Connect(function(input)
+    if input.UserInputType == cfg.K then
+        tracking = false
+        if cfg.Fg then pcall(mouse1release) cfg.Fg = false end
+        cfg.AFT = 0
+    end
+end)
+local function getClosest()
+    local closest, minDist = nil, cfg.F
+    for _, player in pairs(a:GetPlayers()) do
+        if player ~= f and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local scr, onScreen = e:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local mouseLoc = c:GetMouseLocation()
+                local dist = (Vector2.new(scr.X, scr.Y) - Vector2.new(mouseLoc.X, mouseLoc.Y)).Magnitude
+                local worldDist = (e.CFrame.Position - head.Position).Magnitude
+                if dist < minDist and worldDist <= cfg.M then
+                    minDist = dist
+                    closest = head
+                end
+            end
+        end
+    end
+    return closest
+end
+local function isVisible(tPart)
+    local origin = e.CFrame.Position
+    local direction = (tPart.Position - origin).Unit * (tPart.Position - origin).Magnitude
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {f.Character}
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local result = workspace:Raycast(origin, direction, rayParams)
+    return (not result or result.Instance:IsDescendantOf(tPart.Parent))
+end
+b.RenderStepped:Connect(function(dt)
+    if circ then
+        local mouse = c:GetMouseLocation()
+        circ.Position = Vector2.new(mouse.X, mouse.Y)
+        circ.Radius = cfg.F
+        circ.Visible = cfg.V
+    end
+    local target = nil
+    if cfg.A and tracking then
+        target = getClosest()
+        if target then
+            local targetPos = target.Position
+            local t = math.clamp(cfg.S, 0.01, 1)
+            e.CFrame = e.CFrame:Lerp(CFrame.new(e.CFrame.Position, targetPos), t)
+            local scr = e:WorldToViewportPoint(targetPos)
+            local mouseLoc = c:GetMouseLocation()
+            local delta = Vector2.new(scr.X, scr.Y) - Vector2.new(mouseLoc.X, mouseLoc.Y)
+            pcall(function() mousemoverel(delta.X, delta.Y) end)
+        end
+    end
+    -- Autofire (HOLD)
+    if cfg.A and cfg.AF and tracking then
+        if target and isVisible(target) then
+            cfg.AFT = cfg.AFT + dt
+            if cfg.AFT >= cfg.AFH then
+                if not cfg.Fg then
+                    cfg.Fg = true
+                    pcall(mouse1press)
+                end
+            end
+        else
+            cfg.AFT = 0
+            if cfg.Fg then
+                cfg.Fg = false
+                pcall(mouse1release)
+            end
+        end
+    else
+        cfg.AFT = 0
+        if cfg.Fg then
+            cfg.Fg = false
+            pcall(mouse1release)
+        end
+    end
+end)
+
+print("CoreUI Loaded! Hold RMB to aim. Features active.")
